@@ -1,0 +1,145 @@
+apply plugin: 'idea'
+
+configurations {
+    xjc_internal
+    xjc
+}
+
+clean {
+    delete "generated"
+}
+
+dependencies {
+    xjc 'com.sun.xml.bind:jaxb-xjc'
+    xjc 'com.sun.xml.bind:jaxb-impl'
+    xjc 'javax.xml.bind:jaxb-api'
+
+    xjc_internal 'org.jvnet.jaxb2_commons:jaxb2-basics'
+    xjc_internal 'com.github.danielwegener.xjc:xjc-guava-plugin'
+    xjc_internal 'org.jvnet.jaxb2_commons:jaxb2-fluent-api'
+
+    compile project(':mdb:mdb-jaxb')
+    compile 'org.jvnet.jaxb2_commons:jaxb2-basics-runtime'
+}
+
+task xjc {
+
+    def baseDir = projectDir
+    try {
+        if (this.hasProperty('jaxbRootDir')) {
+            baseDir = jaxbRootDir
+        }
+    } catch (groovy.lang.MissingPropertyException e) {}
+
+    def resourcesDir = new File(baseDir, "src/main/resources")
+    def xsdDir = new File(resourcesDir, "xsd");
+    def bindingDir = new File(resourcesDir, "xjb");
+    def destinationDir = new File(projectDir, 'generated/jaxb/java')
+    def metaInfDir = new File(projectDir, 'generated/jaxb/resources/META-INF')
+
+    jaxbExecutions.each() {
+
+        // ADD SCHEMA'S TO INPUTS
+        def schemas = it[0].split(',')
+        schemas.each() {
+            if (new File(it.trim()).isAbsolute()) {
+                inputs.file new File(it.trim())
+            } else {
+                inputs.file new File(xsdDir, it.trim())
+            }
+        }
+
+        // ADD BINDINGS TO INPUTS
+        if (it.size() == 3) {
+            def bindings = it[2].split(',')
+            bindings.each() {
+                if (new File(it.trim()).isAbsolute()) {
+                    inputs.file new File(it.trim())
+                } else {
+                    inputs.file new File(bindingDir, it.trim())
+                }
+            }
+        }
+    }
+    // ADD OUTPUT DIR TO OUTPUTS
+    outputs.dir new File(projectDir, 'generated/jaxb')
+
+    doLast {
+
+        destinationDir.mkdirs()
+        metaInfDir.mkdirs()
+
+        jaxbExecutions.each() {
+
+            def arguments = ['-extension', '-npa', '-verbose']
+
+            def schemas = it[0].split(',')
+            schemas.each() {
+                if (new File(it.trim()).isAbsolute()) {
+                    arguments.add(new File(it.trim()))
+                } else {
+                    arguments.add(new File(xsdDir, it.trim()).absolutePath)
+                }
+            }
+
+            arguments.addAll(["-classpath", configurations.xjc_internal.asPath])
+            arguments.addAll(['-Xguava', '-Xfluent-api', '-Xsetters'])
+            arguments.addAll(['-episode', new File(metaInfDir, 'sun-jaxb.episode').absolutePath])
+
+            arguments.addAll(['-p', it[1]])
+            arguments.addAll(['-d', destinationDir.absolutePath])
+
+            def catalog = new File(resourcesDir, 'catalog-gradle.cat')
+            if (catalog.exists()) {
+                arguments.addAll(["-catalog", catalog.absolutePath])
+            }
+
+            // HAS BINDINGS
+            if (it.size() == 3) {
+                def bindings = it[2].split(',')
+                bindings.each() {
+                    if (new File(it.trim()).isAbsolute()) {
+                        arguments.addAll(['-b', new File(it.trim()).absolutePath])
+                    } else {
+                        arguments.addAll(['-b', new File(bindingDir, it.trim()).absolutePath])
+                    }
+                }
+            }
+
+            javaexec {
+
+                classpath configurations.xjc
+                jvmArgs = ['-Djavax.xml.accessExternalSchema=all', '-Dcom.sun.tools.xjc.XJCFacade.nohack=true']
+                main = 'com.sun.tools.xjc.XJCFacade'
+                args arguments
+            }
+        }
+    }
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir "src/main/java"
+            srcDir "generated/jaxb/java"
+        }
+        resources {
+            srcDir "src/main/resources"
+            srcDir "generated/jaxb/resources"
+        }
+    }
+}
+
+compileJava.dependsOn xjc
+
+idea {
+
+    module {
+        //if for some reason you want to add an extra sourceDirs
+        sourceDirs += file('generated/jaxb/java')
+
+        //and hint to mark some of existing source dirs as generated sources
+        generatedSourceDirs += file('generated/jaxb/java')
+
+    }
+}
