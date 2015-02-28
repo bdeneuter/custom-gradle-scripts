@@ -4,7 +4,7 @@ task touchTestResultToMakeJenkinsHappy{
             try {
                 def timestamp = System.currentTimeMillis()
                 testResultsDir.eachFile {
-                    //it.lastModified = timestamp
+                    it.lastModified = timestamp
                 }
             } catch (java.lang.Throwable e) {}
         }
