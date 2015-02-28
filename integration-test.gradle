@@ -19,7 +19,7 @@ task testintegration(type: Test, dependsOn: testClasses) {
     description 'Runs the integration tests.'
     testClassesDir = sourceSets.testintegration.output.classesDir
     classpath = sourceSets.testintegration.runtimeClasspath
-    binResultsDir = file('$buildDir/testintegration-result/bin')
+    binResultsDir = "$buildDir/testintegration-result/bin"
     reports.junitXml.destination = "$buildDir/testintegration-results"
     reports.html.destination = "$buildDir/reports/testintegration"
     systemProperties['jar.path'] = jar.archivePath
