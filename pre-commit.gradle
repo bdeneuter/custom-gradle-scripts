@@ -1,0 +1,4 @@
+task precommit
+
+precommit.dependsOn test
+precommit.dependsOn testintegration

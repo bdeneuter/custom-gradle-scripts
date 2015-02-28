@@ -6,7 +6,7 @@ configurations {
 }
 
 clean {
-    delete "generated"
+    delete project.file("build/generated")
 }
 
 dependencies {
@@ -34,8 +34,8 @@ task xjc {
     def resourcesDir = new File(baseDir, "src/main/resources")
     def xsdDir = new File(resourcesDir, "xsd");
     def bindingDir = new File(resourcesDir, "xjb");
-    def destinationDir = new File(projectDir, 'generated/jaxb/java')
-    def metaInfDir = new File(projectDir, 'generated/jaxb/resources/META-INF')
+    def destinationDir = new File(projectDir, 'build/generated/jaxb/java')
+    def metaInfDir = new File(projectDir, 'build/generated/jaxb/resources/META-INF')
 
     jaxbExecutions.each() {
 
@@ -48,6 +48,9 @@ task xjc {
                 inputs.file new File(xsdDir, it.trim())
             }
         }
+
+        // ADD PACKAGES TO INPUTS
+        inputs.property('package', it[1])
 
         // ADD BINDINGS TO INPUTS
         if (it.size() == 3) {
@@ -62,7 +65,7 @@ task xjc {
         }
     }
     // ADD OUTPUT DIR TO OUTPUTS
-    outputs.dir new File(projectDir, 'generated/jaxb')
+    outputs.dir new File(projectDir, 'build/generated/jaxb')
 
     doLast {
 
@@ -121,11 +124,11 @@ sourceSets {
     main {
         java {
             srcDir "src/main/java"
-            srcDir "generated/jaxb/java"
+            srcDir "build/generated/jaxb/java"
         }
         resources {
             srcDir "src/main/resources"
-            srcDir "generated/jaxb/resources"
+            srcDir "build/generated/jaxb/resources"
         }
     }
 }
@@ -136,10 +139,10 @@ idea {
 
     module {
         //if for some reason you want to add an extra sourceDirs
-        sourceDirs += file('generated/jaxb/java')
+        sourceDirs += file('build/generated/jaxb/java')
 
         //and hint to mark some of existing source dirs as generated sources
-        generatedSourceDirs += file('generated/jaxb/java')
+        generatedSourceDirs += file('build/generated/jaxb/java')
 
     }
 }

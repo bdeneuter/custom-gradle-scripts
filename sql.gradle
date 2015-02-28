@@ -1,0 +1,90 @@
+import groovy.sql.Sql
+import static org.apache.commons.lang3.StringUtils.isNotBlank
+
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'org.apache.commons:commons-lang3:3.3.2'
+    }
+}
+
+configurations {
+    sqlDriver
+}
+
+dependencies {
+    sqlDriver 'com.oracle:ojdbc6'
+}
+
+URLClassLoader loader = gradle.class.classLoader
+configurations.sqlDriver.each {File file ->
+    loader.addURL(file.toURI().toURL())
+}
+
+task executeSql {
+
+    def scriptsDir = new File(projectDir, 'src/main/sql/')
+
+    sqlExecutions.each() {
+        // ADD SCRIPTS TO INPUTS
+        def scripts = it.scripts;
+        scripts.each() {
+            if (new File(it.trim()).isAbsolute()) {
+                inputs.file new File(it.trim())
+            } else {
+                inputs.file new File(scriptsDir, it.trim())
+            }
+        }
+    }
+
+    doLast {
+
+        sqlExecutions.each {
+            def sql = Sql.newInstance(it.url, it.user, it.password, 'oracle.jdbc.driver.OracleDriver')
+
+            try {
+                def delimiter = it.delimiter
+                def scripts = it.scripts
+                scripts.each {
+                    def script = new File(it)
+                    if (!script.isAbsolute()) {
+                        script = new File(scriptsDir, it)
+                    }
+                    println ''
+                    println 'Executing script: ' + script
+                    String sqlString = script.getText('utf8')
+
+                    sqlString.split(delimiter).each {
+
+                        def lines = []
+                        it.eachLine {
+                            if (isNotBlank(it) && !it.startsWith('--')) {
+                                lines.add(it)
+                            }
+                        }
+
+                        def statement = lines.join('\n')
+                        if (isNotBlank(statement)) {
+                            try {
+                                sql.execute(statement)
+                            } catch (java.sql.SQLSyntaxErrorException e) {
+                                // catch TABLE OR VIEW DOES NOT EXIST. Possible due DROP TABLE statement
+                                if (e.message.contains('table or view does not exist')) {
+                                    println 'Warning: Ignoring exception with message: ' + e.message
+                                } else {
+                                    throw e
+                                }
+                            }
+                        }
+                    }
+                }
+
+            } finally {
+                sql.close()
+            }
+
+        }
+    }
+}

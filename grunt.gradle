@@ -1,0 +1,17 @@
+node {
+    // Version of node to use.
+    version = '0.10.22'
+
+    // Enabled the automatic download. False is the default (for now).
+    download = true
+}
+
+def srcDir = new File(projectDir, 'app')
+def targetDir = new File(project.buildDir, "web")
+grunt_build.inputs.dir srcDir
+grunt_build.outputs.dir targetDir
+
+npmInstall.dependsOn 'installGrunt'
+grunt_build.dependsOn 'installGrunt'
+grunt_build.dependsOn 'npmInstall'
+build.dependsOn grunt_build
